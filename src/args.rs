@@ -1,3 +1,5 @@
+use crate::dump::{get_fn, DumpOutcomeFn};
+const JSON_FLAGS: &[&str] = &["-j", "--json"];
 #[derive(Debug, PartialEq)]
 pub enum ArgsError {
     NotEnough(String),
@@ -14,15 +16,38 @@ pub fn get_ts_strings(mut args: Vec<String>) -> Result<Vec<String>, ArgsError> {
     let count = args.len() - 1;
     match count {
         0 => Err(ArgsError::NotEnough(
-            "tsp expects at least one argument".into(),
+            "tsp expects at least one value to process".into(),
         )),
         _ => Ok(args.split_off(1)),
     }
 }
 
+pub fn get_dump_fn(cli_args: &mut Vec<String>) -> DumpOutcomeFn {
+    let mut json = false;
+    let original_len = cli_args.len();
+
+    // check if json output is required
+    cli_args.retain(|x| !JSON_FLAGS.contains(&x.as_str()));
+    if original_len > cli_args.len() {
+        json = true;
+    }
+    get_fn(json)
+}
+
+pub fn cleanup(cli_args: &mut Vec<String>) -> bool {
+    let original_len = cli_args.len();
+    let mut cleaned = false;
+    cli_args.retain(|x| !x.starts_with("-"));
+    if original_len > cli_args.len() {
+        cleaned = true;
+    }
+    cleaned
+}
+
 #[cfg(test)]
 mod test {
-    use crate::args::{ArgsError, get_ts_strings};
+    use crate::args::ArgsError;
+    use crate::args::{cleanup, get_dump_fn, get_ts_strings};
 
     #[test]
     fn test_no_args() {
@@ -30,7 +55,7 @@ mod test {
         let error = get_ts_strings(no_args).unwrap_err();
         assert_eq!(
             error,
-            ArgsError::NotEnough("tsp expects at least one argument".into())
+            ArgsError::NotEnough("tsp expects at least one value to process".into())
         );
     }
 
@@ -40,5 +65,56 @@ mod test {
             vec!["tsp".to_string(), "argA".to_string(), "argB".to_string()];
         let remaining = get_ts_strings(some_args).unwrap();
         assert_eq!(remaining, vec!["argA".to_string(), "argB".to_string()]);
+    }
+
+    #[test]
+    fn test_get_dump_fn_text() {
+        // can't test the value returned by `get_dump_fn`, as it will be a private function
+        // we can test other effect of the function on the arguments passed to it.
+        let mut some_args: Vec<String> = vec!["tsp".to_string(), "argA".to_string()];
+        let _ = get_dump_fn(&mut some_args);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string()]);
+    }
+
+    #[test]
+    fn test_get_dump_fn_json() {
+        // same as above
+        let mut some_args: Vec<String> =
+            vec!["tsp".to_string(), "--json".to_string(), "argA".to_string()];
+        let _ = get_dump_fn(&mut some_args);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string()]);
+    }
+
+    #[test]
+    fn test_get_dump_fn_json_short() {
+        // same as above
+        let mut some_args: Vec<String> =
+            vec!["tsp".to_string(), "-j".to_string(), "argA".to_string()];
+        let _ = get_dump_fn(&mut some_args);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string()]);
+    }
+
+    #[test]
+    fn test_no_cleanup() {
+        let mut some_args: Vec<String> =
+            vec!["tsp".to_string(), "argA".to_string(), "argB".to_string()];
+        let cleaned = cleanup(&mut some_args);
+        assert_eq!(cleaned, false);
+        assert_eq!(
+            some_args,
+            vec!["tsp".to_string(), "argA".to_string(), "argB".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_some_cleanup() {
+        let mut some_args: Vec<String> = vec![
+            "tsp".to_string(),
+            "argA".to_string(),
+            "-rubbish".to_string(),
+        ];
+        let cleaned = cleanup(&mut some_args);
+        assert_eq!(cleaned, true);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string()]);
     }
 }

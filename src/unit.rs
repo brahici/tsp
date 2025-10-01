@@ -32,14 +32,20 @@ impl Unit {
         match self {
             Unit::Millis => DateTime::from_timestamp_millis,
             Unit::Micros => DateTime::from_timestamp_micros,
-            Unit::Nanos => |n| Some(DateTime::from_timestamp_nanos(n)),
+            Unit::Nanos => nanos_parser_wrapper,
             _ => DateTime::from_timestamp_secs,
         }
     }
 }
 
+// Wrapper to match the Option<DateTime<Utc>> signature of other timestamp parsers.
+// DateTime::from_timestamp_nanos returns DateTime<Utc> directly, unlike the others.
+fn nanos_parser_wrapper(n: i64) -> Option<DateTime<Utc>> {
+    Some(DateTime::from_timestamp_nanos(n))
+}
+
 #[cfg(test)]
-mod test {
+mod test_from_str {
     use crate::unit::{Unit, UnitParseError};
     use std::str::FromStr;
 
@@ -77,5 +83,28 @@ mod test {
     fn test_from_str_err() {
         let error = Unit::from_str("x").unwrap_err();
         assert_eq!(error, UnitParseError)
+    }
+}
+
+#[cfg(test)]
+mod test_parser {
+    use crate::unit::{nanos_parser_wrapper, ParseFn, Unit};
+    use chrono::DateTime;
+
+    #[test]
+    fn test_get_parser() {
+        let expected_table: Vec<(Unit, ParseFn)> = vec![
+            (Unit::Secs, DateTime::from_timestamp_secs),
+            (Unit::Millis, DateTime::from_timestamp_millis),
+            (Unit::Micros, DateTime::from_timestamp_micros),
+            (Unit::Nanos, nanos_parser_wrapper),
+        ];
+
+        for (u, f) in expected_table.iter() {
+            assert!(std::ptr::addr_eq(
+                u.get_parser() as *const (),
+                *f as *const ()
+            ));
+        }
     }
 }

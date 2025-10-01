@@ -1,6 +1,6 @@
 # tsp: timestamp parser
 
-tsp is a command line tool for converting timestamps to dates.
+*tsp is a command line tool for converting timestamps to dates (static output format).
 
 ## Install
 
@@ -26,25 +26,47 @@ $ tsp 1758643530
 
 ```console
 $ tsp m1758643530
-m1758643530          :: Wed, 21 Jan 1970 08:30:43 +0000
+m1758643530 :: Wed, 21 Jan 1970 08:30:43 +0000
 ```
 
 ### Multiple values with different prefixes can be passed
 
 ```console
 $ tsp 1758643530 s1758643530 m1758643530 u1758643530 n1758643530
-1758643530           :: Tue, 23 Sep 2025 16:05:30 +0000
-s1758643530          :: Tue, 23 Sep 2025 16:05:30 +0000
-m1758643530          :: Wed, 21 Jan 1970 08:30:43 +0000
-u1758643530          :: Thu, 01 Jan 1970 00:29:18 +0000
-n1758643530          :: Thu, 01 Jan 1970 00:00:01 +0000
+1758643530  :: Tue, 23 Sep 2025 16:05:30 +0000
+s1758643530 :: Tue, 23 Sep 2025 16:05:30 +0000
+m1758643530 :: Wed, 21 Jan 1970 08:30:43 +0000
+u1758643530 :: Thu, 01 Jan 1970 00:29:18 +0000
+n1758643530 :: Thu, 01 Jan 1970 00:00:01 +0000
+```
+
+### JSON output
+
+```console
+$ tsp -j 1758643530
+[
+  {
+    "value_in": "1758643530",
+    "value_out": "Tue, 23 Sep 2025 16:05:30 +0000"
+  }
+]
 ```
 
 ### Failures are reported but don't break the whole processing
 
 ```console
 $ tsp 1758643530 not_a_ts m1758643530
-1758643530           :: Tue, 23 Sep 2025 16:05:30 +0000
-not_a_ts             :: the value is not an integer
-m1758643530          :: Wed, 21 Jan 1970 08:30:43 +0000
+1758643530 :: Tue, 23 Sep 2025 16:05:30 +0000
+not_a_ts :: the value is not an integer
+m1758643530 :: Wed, 21 Jan 1970 08:30:43 +0000
+```
+
+### A warning is issued on stderr when args were cleaned up
+
+```console
+$ tsp 1758643530 --lol not_a_ts m1758643530
+cleaned rubbish parameters
+1758643530 :: Tue, 23 Sep 2025 16:05:30 +0000
+not_a_ts :: the value is not an integer
+m1758643530 :: Wed, 21 Jan 1970 08:30:43 +0000
 ```

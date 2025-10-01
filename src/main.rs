@@ -1,29 +1,51 @@
 use std::env;
 
 mod args;
+mod dump;
+mod outcome;
 mod parse;
 mod process;
 mod unit;
+mod usage;
+mod value;
+use args::{cleanup, get_dump_fn};
 
 fn main() {
     let cli_args: Vec<String> = env::args().collect();
+    do_it(cli_args.to_owned());
+}
 
-    match args::get_ts_strings(cli_args) {
-        Ok(ts_strs) => {
-            for ts_str in ts_strs.iter() {
-                print!("{ts_str:20} :: ");
-                match process::ts_from_str(ts_str.to_string()) {
-                    Ok(dt) => {
-                        println!("{}", dt.format("%a, %d %b %Y %H:%M:%S %z"));
-                    }
-                    Err(err) => {
-                        println! {"{err}"};
-                    }
-                }
-            }
+fn do_it(mut cli_args: Vec<String>) {
+    if usage::is_help(cli_args.to_owned()) {
+        usage::print_usage();
+    } else {
+        let dump_fn = get_dump_fn(&mut cli_args);
+        if cleanup(&mut cli_args) {
+            eprintln!("cleaned rubbish parameters");
         }
-        Err(err) => {
-            println!("{err}");
-        }
+        process::go(cli_args.to_owned(), dump_fn);
+    }
+}
+
+#[cfg(test)]
+mod test_dummy {
+    #[test]
+    fn test_default() {
+        crate::main()
+    }
+
+    #[test]
+    fn test_do_it_usage() {
+        crate::do_it(vec!["tsp".to_string(), "-h".to_string()]);
+    }
+
+    #[test]
+    fn test_warning() {
+        let args: Vec<String> = vec![
+            "tsp".to_string(),
+            "-rubbish".to_string(),
+            "argA".to_string(),
+        ];
+        crate::do_it(args);
     }
 }

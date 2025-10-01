@@ -1,73 +1,61 @@
-use chrono::{DateTime, Utc};
-use std::str::FromStr;
+use crate::args::get_ts_strings;
+use crate::dump::DumpOutcomeFn;
+use crate::outcome::Outcome;
+use crate::value::ts_from_str;
 
-use crate::parse::ParseResult;
+pub fn go(cli_args: Vec<String>, dump_fn: DumpOutcomeFn) {
+    let mut outcomes: Vec<Outcome> = Vec::new();
 
-#[derive(Debug, PartialEq)]
-pub enum ProcessError {
-    NotAnInt,
-    NotATS,
-    Nothing,
-}
-impl std::fmt::Display for ProcessError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ProcessError::NotAnInt => write!(f, "the value is not an integer"),
-            ProcessError::NotATS => write!(f, "the value is not a timestamp"),
-            ProcessError::Nothing => write!(f, "can't interpret the value"),
-        }
-    }
-}
-
-pub fn ts_from_str(ts_str: String) -> Result<DateTime<Utc>, ProcessError> {
-    if let Ok(input) = ParseResult::from_str(&ts_str) {
-        if let Ok(ts) = input.ts.parse() {
-            let parse_fn = input.unit.get_parser();
-            if let Some(dt) = parse_fn(ts) {
-                Ok(dt)
-            } else {
-                Err(ProcessError::NotATS)
+    match get_ts_strings(cli_args) {
+        Ok(ts_strs) => {
+            for ts_str in ts_strs.iter() {
+                let mut outcome = Outcome::new(ts_str.to_string());
+                match ts_from_str(ts_str.to_string()) {
+                    Ok(dt) => {
+                        outcome.set(dt.format("%a, %d %b %Y %H:%M:%S %z").to_string());
+                    }
+                    Err(err) => {
+                        outcome.set(format!("{err}"));
+                    }
+                }
+                outcomes.push(outcome);
             }
-        } else {
-            Err(ProcessError::NotAnInt)
+            dump_fn(outcomes);
         }
-    } else {
-        Err(ProcessError::Nothing)
+        Err(err) => {
+            println!("{err}");
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::process::{ProcessError, ts_from_str};
-    use chrono::{DateTime, Utc};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use crate::outcome::Outcome;
+    use crate::process::go;
+
+    use std::sync::Mutex;
 
     #[test]
-    fn test_ok() {
-        let now = SystemTime::now();
-        let unow: DateTime<Utc> = now.into();
-        let ns_ts = now.duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let ts_str = format!("n{}", ns_ts);
+    fn test_go() {
+        static COLLECTED_OUTCOMES: Mutex<Vec<Outcome>> = Mutex::new(Vec::new());
 
-        let dt = ts_from_str(ts_str).unwrap();
-        assert_eq!(dt, unow);
-    }
+        fn test_dump_fn(outcomes: Vec<Outcome>) {
+            let mut collected = COLLECTED_OUTCOMES.lock().unwrap();
+            collected.extend(outcomes);
+        }
 
-    #[test]
-    fn test_error_nothing() {
-        let error = ts_from_str("xxxx".to_string()).unwrap_err();
-        assert_eq!(error, ProcessError::Nothing);
-    }
+        go(
+            vec!["tsp".to_string(), "1337".to_string(), "errful".to_string()],
+            test_dump_fn,
+        );
 
-    #[test]
-    fn test_error_not_an_integer() {
-        let error = ts_from_str("mxxxx".to_string()).unwrap_err();
-        assert_eq!(error, ProcessError::NotAnInt);
-    }
-
-    #[test]
-    fn test_error_not_a_timestamp() {
-        let error = ts_from_str("s100000000000000000".to_string()).unwrap_err();
-        assert_eq!(error, ProcessError::NotATS);
+        let collected = COLLECTED_OUTCOMES.lock().unwrap().to_owned();
+        assert_eq!(
+            collected,
+            vec![
+                Outcome::new("1337".to_string()).set("Thu, 01 Jan 1970 00:22:17 +0000".to_string()),
+                Outcome::new("errful".to_string()).set("can't interpret the value".to_string()),
+            ]
+        );
     }
 }
