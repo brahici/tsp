@@ -1,15 +1,23 @@
-const USAGE: &str = "\x1b[1mtsp\x1b[22m [0.2.0]
+pub fn print_usage() {
+    let version = env!("PACKAGE_VERSION");
+    let chrono = env!("CHRONO_VERSION");
+    println!(
+        "\x1b[1mtsp\x1b[22m [{version}]
 
 tsp is a timestamp parser.
 
 \x1b[1mUSAGE\x1b[22m: tsp [OPTIONS] [timestamps]...
 
 \x1b[1mOPTIONS\x1b[22m:
+  -F <FORMAT>       Date format string
   -j, --json        JSON output
   -h, --help        Print help
 
+  FORMAT supports https://docs.rs/chrono/{chrono}/chrono/format/strftime/index.html.
+
 \x1b[1mARGS\x1b[22m:
   <timestamps>...        timestamps to convert
+
 
 Timestamps granularity is either in seconds, milliseconds, microseconds or nanoseconds.
 The parser supports a value prefix for each granularity level:
@@ -17,10 +25,8 @@ The parser supports a value prefix for each granularity level:
   * m  =>  milliseconds
   * u  =>  microseconds
   * n  =>  nanoseconds
-If a value has no prefix, it is parsed as seconds.";
-
-pub fn print_usage() {
-    println!("{USAGE}");
+If a value has no prefix, it is parsed as seconds."
+    );
 }
 
 pub fn is_help(args: Vec<String>) -> bool {

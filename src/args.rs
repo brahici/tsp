@@ -1,5 +1,13 @@
+use std::panic;
+use std::time::SystemTime;
+
+use chrono::{DateTime, Utc};
+
 use crate::dump::{get_fn, DumpOutcomeFn};
+
 const JSON_FLAGS: &[&str] = &["-j", "--json"];
+const DEFAULT_DATE_FORMAT: &str = "%a, %d %b %Y %H:%M:%S %z";
+
 #[derive(Debug, PartialEq)]
 pub enum ArgsError {
     NotEnough(String),
@@ -34,6 +42,38 @@ pub fn get_dump_fn(cli_args: &mut Vec<String>) -> DumpOutcomeFn {
     get_fn(json)
 }
 
+pub fn get_fmt_str(cli_args: &mut Vec<String>) -> String {
+    validate_fmt(extract_fmt(cli_args))
+}
+
+fn extract_fmt(cli_args: &mut Vec<String>) -> String {
+    let mut cli_args_iter = cli_args.clone().into_iter();
+    match cli_args_iter.position(|x| x == "-F") {
+        None => DEFAULT_DATE_FORMAT.to_string(),
+        Some(idx) => {
+            cli_args.remove(idx);
+            if let Some(fmt) = cli_args_iter.next() {
+                cli_args.remove(idx);
+                return fmt.to_owned();
+            }
+            DEFAULT_DATE_FORMAT.to_string()
+        }
+    }
+}
+
+fn validate_fmt(fmt: String) -> String {
+    let dt_now: DateTime<Utc> = SystemTime::now().into();
+    let fmt_ts = dt_now.format(fmt.as_str());
+    let result = panic::catch_unwind(|| format!("{fmt_ts}"));
+    match result {
+        Ok(_) => fmt,
+        Err(_) => {
+            eprintln!("! invalid format string: '{fmt}', using default.");
+            DEFAULT_DATE_FORMAT.to_string()
+        }
+    }
+}
+
 pub fn cleanup(cli_args: &mut Vec<String>) -> bool {
     let original_len = cli_args.len();
     let mut cleaned = false;
@@ -47,7 +87,8 @@ pub fn cleanup(cli_args: &mut Vec<String>) -> bool {
 #[cfg(test)]
 mod test {
     use crate::args::ArgsError;
-    use crate::args::{cleanup, get_dump_fn, get_ts_strings};
+    use crate::args::DEFAULT_DATE_FORMAT;
+    use crate::args::{cleanup, get_dump_fn, get_fmt_str, get_ts_strings, validate_fmt};
 
     #[test]
     fn test_no_args() {
@@ -92,6 +133,42 @@ mod test {
             vec!["tsp".to_string(), "-j".to_string(), "argA".to_string()];
         let _ = get_dump_fn(&mut some_args);
         assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string()]);
+    }
+
+    #[test]
+    fn test_get_fmt_str() {
+        let mut some_args: Vec<String> = vec![
+            "tsp".to_string(),
+            "-F".to_string(),
+            "a-format".to_string(),
+            "argA".to_string(),
+        ];
+        let fmt_str = get_fmt_str(&mut some_args);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string()]);
+        assert_eq!(fmt_str, "a-format".to_string());
+    }
+
+    #[test]
+    fn test_get_fmt_str_default() {
+        let mut some_args: Vec<String> =
+            vec!["tsp".to_string(), "argA".to_string(), "-F".to_string()];
+        let fmt_str = get_fmt_str(&mut some_args);
+        assert_eq!(fmt_str, DEFAULT_DATE_FORMAT.to_string());
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string(),]);
+    }
+
+    #[test]
+    fn test_validate_fmt_ok() {
+        let fmt = "%Y%m%d".to_string();
+        let got = validate_fmt(fmt.to_owned());
+        assert_eq!(got, fmt);
+    }
+
+    #[test]
+    fn test_validate_fmt_err() {
+        let fmt = "%N".to_string();
+        let got = validate_fmt(fmt.to_owned());
+        assert_eq!(got, DEFAULT_DATE_FORMAT);
     }
 
     #[test]
