@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 
 use crate::args::get_ts_strings;
 use crate::dump::DumpOutcomeFn;
 use crate::outcome::Outcome;
 use crate::value::ts_from_str;
 
-pub fn go(cli_args: Vec<String>, fmt: String, dump_fn: DumpOutcomeFn) {
+pub fn go(cli_args: Vec<String>, fmt: String, tz: Tz, dump_fn: DumpOutcomeFn) {
     let mut outcomes: Vec<Outcome> = Vec::new();
 
     match get_ts_strings(cli_args) {
@@ -14,7 +15,7 @@ pub fn go(cli_args: Vec<String>, fmt: String, dump_fn: DumpOutcomeFn) {
                 let mut outcome = Outcome::new(ts_str.to_string());
                 match ts_from_str(ts_str.to_string()) {
                     Ok(dt) => {
-                        let fmt_ts = FmtDate::new(dt, fmt.to_owned());
+                        let fmt_ts = FmtDate::new(dt, fmt.to_owned(), tz);
                         outcome.set(format!("{fmt_ts}"));
                     }
                     Err(err) => {
@@ -35,15 +36,17 @@ pub fn go(cli_args: Vec<String>, fmt: String, dump_fn: DumpOutcomeFn) {
 pub struct FmtDate {
     dt: DateTime<Utc>,
     fmt: String,
+    tz: Tz,
 }
 impl std::fmt::Display for FmtDate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.dt.format(self.fmt.as_str()))
+        let dt = self.dt.with_timezone(&self.tz);
+        write!(f, "{}", dt.format(self.fmt.as_str()))
     }
 }
 impl FmtDate {
-    pub fn new(dt: DateTime<Utc>, fmt: String) -> FmtDate {
-        FmtDate { dt, fmt }
+    pub fn new(dt: DateTime<Utc>, fmt: String, tz: Tz) -> FmtDate {
+        FmtDate { dt, fmt, tz }
     }
 }
 
@@ -54,6 +57,7 @@ mod test {
     use crate::process::FmtDate;
 
     use chrono::{DateTime, Utc};
+    use chrono_tz::UTC;
     use std::sync::Mutex;
 
     #[test]
@@ -68,6 +72,7 @@ mod test {
         go(
             vec!["tsp".to_string(), "1337".to_string(), "errful".to_string()],
             "%a, %d %b %Y %H:%M:%S %z".to_string(),
+            UTC,
             test_dump_fn,
         );
 
@@ -87,7 +92,17 @@ mod test {
             DateTime::parse_from_str("2025-09-23 20:00:00 +00:00", "%Y-%m-%d %H:%M:%S %z")
                 .unwrap()
                 .into();
-        let fmt_date = FmtDate::new(dt, "%Y-%m-%d".to_string());
+        let fmt_date = FmtDate::new(dt, "%Y-%m-%d".to_string(), UTC);
         assert_eq!("2025-09-23", format!("{}", fmt_date));
+    }
+
+    #[test]
+    fn test_fmtdate_implementation_with_tz() {
+        let dt: DateTime<Utc> =
+            DateTime::parse_from_str("2025-09-23 23:30:00 +00:00", "%Y-%m-%d %H:%M:%S %z")
+                .unwrap()
+                .into();
+        let fmt_date = FmtDate::new(dt, "%Y-%m-%d".to_string(), chrono_tz::Europe::Paris);
+        assert_eq!("2025-09-24", format!("{}", fmt_date));
     }
 }

@@ -1,6 +1,6 @@
 # tsp: timestamp parser
 
-*tsp is a command line tool for converting timestamps to dates (static output format).
+tsp is a command line tool for converting timestamps to dates (static output format).
 
 ## Install
 
@@ -20,6 +20,13 @@ TARGET=~/local/.bin make install
 ```console
 $ tsp 1758643530
 1758643530           :: Tue, 23 Sep 2025 16:05:30 +0000
+```
+
+### Convert a timestamp in seconds with timezone
+
+```console
+$ tsp 1758643530 -T "Europe/Paris"
+1758643530           :: Tue, 23 Sep 2025 18:05:30 +0200
 ```
 
 ### Convert a timestamp in milliseconds

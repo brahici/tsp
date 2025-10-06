@@ -1,6 +1,7 @@
 pub fn print_usage() {
     let version = env!("PACKAGE_VERSION");
     let chrono = env!("CHRONO_VERSION");
+    let chrono_tz = env!("CHRONO_TZ_VERSION");
     println!(
         "\x1b[1mtsp\x1b[22m [{version}]
 
@@ -9,11 +10,13 @@ tsp is a timestamp parser.
 \x1b[1mUSAGE\x1b[22m: tsp [OPTIONS] [timestamps]...
 
 \x1b[1mOPTIONS\x1b[22m:
-  -F <FORMAT>       Date format string
+  -F <FORMAT>       Date format string  (default: RFC 2822)
+  -T <TZ>           Date timezone       (default: UTC)
   -j, --json        JSON output
   -h, --help        Print help
 
-  FORMAT supports https://docs.rs/chrono/{chrono}/chrono/format/strftime/index.html.
+  FORMAT supports https://docs.rs/chrono/{chrono}/chrono/format/strftime/index.html
+  TZ     supports https://docs.rs/chrono-tz/{chrono_tz}/chrono_tz/enum.Tz.html
 
 \x1b[1mARGS\x1b[22m:
   <timestamps>...        timestamps to convert

@@ -2,11 +2,13 @@ use std::panic;
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 
 use crate::dump::{get_fn, DumpOutcomeFn};
 
 const JSON_FLAGS: &[&str] = &["-j", "--json"];
 const DEFAULT_DATE_FORMAT: &str = "%a, %d %b %Y %H:%M:%S %z";
+const DEFAULT_TZ: &str = "UTC";
 
 #[derive(Debug, PartialEq)]
 pub enum ArgsError {
@@ -74,6 +76,32 @@ fn validate_fmt(fmt: String) -> String {
     }
 }
 
+pub fn get_tz(cli_args: &mut Vec<String>) -> chrono_tz::Tz {
+    validate_tz(extract_tz(cli_args))
+}
+
+fn extract_tz(cli_args: &mut Vec<String>) -> String {
+    let mut cli_args_iter = cli_args.clone().into_iter();
+    match cli_args_iter.position(|x| x == "-T") {
+        None => DEFAULT_TZ.to_string(),
+        Some(idx) => {
+            cli_args.remove(idx);
+            if let Some(tz) = cli_args_iter.next() {
+                cli_args.remove(idx);
+                return tz.to_owned();
+            }
+            DEFAULT_TZ.to_string()
+        }
+    }
+}
+
+fn validate_tz(tz_str: String) -> Tz {
+    match tz_str.parse::<Tz>() {
+        Ok(tz) => tz,
+        Err(_) => DEFAULT_TZ.parse::<Tz>().unwrap(),
+    }
+}
+
 pub fn cleanup(cli_args: &mut Vec<String>) -> bool {
     let original_len = cli_args.len();
     let mut cleaned = false;
@@ -86,9 +114,13 @@ pub fn cleanup(cli_args: &mut Vec<String>) -> bool {
 
 #[cfg(test)]
 mod test {
+    use chrono_tz::UTC;
+
     use crate::args::ArgsError;
     use crate::args::DEFAULT_DATE_FORMAT;
-    use crate::args::{cleanup, get_dump_fn, get_fmt_str, get_ts_strings, validate_fmt};
+    use crate::args::{cleanup, get_dump_fn};
+    use crate::args::{get_fmt_str, get_ts_strings, validate_fmt};
+    use crate::args::{get_tz, validate_tz};
 
     #[test]
     fn test_no_args() {
@@ -169,6 +201,50 @@ mod test {
         let fmt = "%N".to_string();
         let got = validate_fmt(fmt.to_owned());
         assert_eq!(got, DEFAULT_DATE_FORMAT);
+    }
+
+    #[test]
+    fn test_get_tz() {
+        let mut some_args: Vec<String> = vec![
+            "tsp".to_string(),
+            "-T".to_string(),
+            "Europe/Paris".to_string(),
+            "argA".to_string(),
+        ];
+        let tz = get_tz(&mut some_args);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string()]);
+        assert_eq!(tz, chrono_tz::Europe::Paris);
+    }
+
+    #[test]
+    fn test_get_fmt_tz_default() {
+        let mut some_args: Vec<String> = vec!["tsp".to_string(), "argA".to_string()];
+        let tz = get_tz(&mut some_args);
+        assert_eq!(tz, UTC);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string(),]);
+    }
+
+    #[test]
+    fn test_get_fmt_tz_missing_value() {
+        let mut some_args: Vec<String> =
+            vec!["tsp".to_string(), "argA".to_string(), "-T".to_string()];
+        let tz = get_tz(&mut some_args);
+        assert_eq!(tz, UTC);
+        assert_eq!(some_args, vec!["tsp".to_string(), "argA".to_string(),]);
+    }
+
+    #[test]
+    fn test_validate_tz_ok() {
+        let tz_str = "Europe/Paris".to_string();
+        let tz = validate_tz(tz_str.to_owned());
+        assert_eq!(tz, chrono_tz::Europe::Paris);
+    }
+
+    #[test]
+    fn test_validate_tz_err() {
+        let tz_str = "Atlantis/Atlantis_City".to_string();
+        let tz = validate_tz(tz_str.to_owned());
+        assert_eq!(tz, chrono_tz::UTC);
     }
 
     #[test]

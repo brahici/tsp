@@ -45,5 +45,8 @@ fn main() {
         if name == "chrono" {
             println!("cargo::rustc-env=CHRONO_VERSION={}", dep_version(dep));
         }
+        if name == "chrono-tz" {
+            println!("cargo::rustc-env=CHRONO_TZ_VERSION={}", dep_version(dep));
+        }
     }
 }

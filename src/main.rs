@@ -8,7 +8,7 @@ mod process;
 mod unit;
 mod usage;
 mod value;
-use args::{cleanup, get_dump_fn, get_fmt_str};
+use args::{cleanup, get_dump_fn, get_fmt_str, get_tz};
 
 fn main() {
     let cli_args: Vec<String> = env::args().collect();
@@ -21,10 +21,11 @@ fn do_it(mut cli_args: Vec<String>) {
     } else {
         let dump_fn = get_dump_fn(&mut cli_args);
         let fmt_str = get_fmt_str(&mut cli_args);
+        let tz = get_tz(&mut cli_args);
         if cleanup(&mut cli_args) {
             eprintln!("! cleaned rubbish parameters");
         }
-        process::go(cli_args.to_owned(), fmt_str, dump_fn);
+        process::go(cli_args.to_owned(), fmt_str, tz, dump_fn);
     }
 }
 
